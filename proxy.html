@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<!-- saved from url=(0040)https://mycomet.my.mail.ru/proxy.html?10 -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<script>
+			(function() {
+				var ERROR_TIMEOUT = 90000;
+				var ORIGIN_PATTERN = new RegExp(
+					'^(https?:\\/\\/)?' +
+					'(my\\.mail\\.ru|' +
+					'my\\.myalpha\\d\\.i\\.mail\\.ru|' +
+					'pmm-\\d+\\.my\\.myalpha\\d\\.i\\.mail\\.ru)$'
+				);
+				var EVENTS = {
+					ready: 'proxyReady',
+					requestCreate: 'proxyRequestCreate',
+					requestAbort: 'proxyRequestAbort',
+					requestSucceeded: 'proxyRequestSucceeded',
+					requestFailed: 'proxyRequestFailed'
+				};
+				var ACCEPTABLE_EVENTS = Object.values(EVENTS);
+				var requestData = {};
+				var shouldSendError = true;
+
+				var makeGetParamsString = function (hash) {
+					var result = [];
+
+					for (var key in hash) {
+						if (!hash.hasOwnProperty(key)) {
+							continue;
+						}
+
+						result[result.length] = key+ '='+ escape(hash[key]);
+					}
+
+					return result.join('&');
+				};
+
+				var clearRequestData = function(reqId) {
+					try {
+						window.clearTimeout(requestData[reqId].timeout);
+						requestData[reqId].request.abort();
+						requestData[reqId].request.onreadystatechange = function() {};
+						requestData[reqId].timeout = null;
+						requestData[reqId].request = null;
+					} catch (error) {
+						console.error('[proxy] error: clear request data', error);
+					}
+
+					delete requestData[reqId];
+				};
+
+				var sendResponse = function(reqId, data) {
+					var eventType = data.error ? EVENTS.requestFailed : EVENTS.requestSucceeded;
+					var eventData = Object.assign({}, { type: eventType }, data);
+
+					parent.postMessage(eventData, requestData[reqId].domain);
+
+					clearRequestData(reqId);
+				};
+
+				var handleProxyRequestCreate = function(origin, args) {
+					var reqId = args.reqId;
+					var url = args.url;
+					var method = args.method || 'GET';
+					var get = args.get || {};
+
+					if (!reqId) {
+						return console.error('[proxy] error: empty reqId');
+					}
+
+					if (!url) {
+						return console.error('[proxy] error: empty url');
+					}
+
+					var request = new XMLHttpRequest();
+					var timeoutTriggered = false;
+
+					requestData[reqId] = {
+						domain: origin,
+						request: request,
+						timeout: window.setTimeout(function() {
+							if (requestData[reqId]) {
+								timeoutTriggered = true;
+								sendResponse(reqId, { error: 'timeout' });
+							}
+						}, ERROR_TIMEOUT)
+					};
+
+					request.onreadystatechange = function() {
+						if (request.readyState == 4 && requestData[reqId]) {
+							window.clearTimeout(requestData[reqId].timeout);
+
+							if(request.status == 200) {
+								if(!timeoutTriggered) {
+									sendResponse(reqId, { response: request.responseText });
+								}
+							} else if (options.cbError && sendError) {
+								sendResponse(reqId, {
+									error: 'http_error',
+									errorStatus: parseInt(request.status)
+								});
+							}
+						}
+					};
+
+					request.open(method, url + '?' + makeGetParamsString(get), true);
+					request.send(null);
+				};
+
+				var handleProxyRequestAbort = function(args) {
+					if (!requestData[args.reqId]) {
+						return console.error('[proxy] error: no such request', args.reqId);
+					}
+
+					clearRequestData(args.reqId);
+				};
+
+				var normalizeOrigin = function(origin) {
+					return origin.endsWith('/') ? origin.slice(0, -1) : origin;
+				}
+
+				window.onunload = window.onUnload = function() {
+					shouldSendError = false;
+				};
+
+				window.addEventListener('message', function(event) {
+					var isAcceptableOrigin = ORIGIN_PATTERN.test(normalizeOrigin(event.origin));
+					var messageMethodMap = {
+						[EVENTS.requestCreate]: handleProxyRequestCreate,
+						[EVENTS.requestAbort]: handleProxyRequestAbort
+					};
+					var handler = event.data && messageMethodMap[event.data.type];
+					var handlerArgs = event.data && event.data.args;
+
+					if (isAcceptableOrigin && handler && handlerArgs) {
+						var reqId = handlerArgs.reqId;
+
+						if (!reqId) {
+							return console.error('[proxy] error: no such request', reqId);
+						}
+
+						handler(event.origin, handlerArgs);
+					}
+				});
+
+				parent.postMessage({ type: 'proxyReady' }, '*');
+			})();
+		</script>
+	</head>
+	<body>
+
+	
+
+</body></html>
