@@ -1,0 +1,1 @@
+define(["require","exports"],function(a,b){"use strict";Object.defineProperty(b,"__esModule",{value:!0}),b.ETaskStatusType=void 0;var c;!function(a){a[a.NEW=0]="NEW",a[a.DONE=1]="DONE",a[a.CLOSED=2]="CLOSED"}(c=b.ETaskStatusType||(b.ETaskStatusType={}))});

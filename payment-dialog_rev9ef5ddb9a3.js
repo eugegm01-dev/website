@@ -1,0 +1,1 @@
+define(["payment/PaymentDialog","payment/payment-old"],function(a,b){"use strict";return document.body.classList.contains("m-pw-checkout-enabled-balance")?(requirejs(["payment/payment"]),a):b});

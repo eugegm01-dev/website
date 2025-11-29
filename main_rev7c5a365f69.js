@@ -1,0 +1,1 @@
+define(["client-server","base/view","models/user/active"],function(a,b,c){"use strict";return b.extend({props:{deferred:{activeUser:"models/user/active"}},public:{init:function(){c.ready(function(){c.isAuthorized()&&a.func("visitors.add_visit",{},{url:window.location.pathname.split("/").slice(0,3).join("/")+"/ajax",type:"post"})})}}})});
